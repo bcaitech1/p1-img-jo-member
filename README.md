@@ -1,4 +1,4 @@
-# ![image-20210602142343433](../images/image-20210602142343433.png)
+# <img width="194" alt="image-20210602142343433" src="https://user-images.githubusercontent.com/68108633/120448574-a985ef00-c3c6-11eb-99a4-5dd01401b980.png">
 
 # P-stage 1) Image Classification
 
@@ -27,7 +27,7 @@
 
   - 18개의 class를 도출
 
-  <img src="/Users/jowon/workspace/jo-member.github.io/source/images/image-20210407122730687.png" alt="image-20210407122730687" style="zoom:50%;" />
+  <img width="709" alt="image-20210407122730687" src="https://user-images.githubusercontent.com/68108633/120448691-c3bfcd00-c3c6-11eb-9cf9-5607b900e975.png">
 
 - 최종 평가 기준 : **f1-score**  
 - Age, Gender, Age 사이의 연관성?
@@ -57,7 +57,7 @@
 
 - 중년 여성 > 청년 여성 > 청년 남성 > 중년 남성 > 노년 여성 > 노년 남성 순으로 데이터가 많음
 
-![image-20210407125736502](/Users/jowon/workspace/jo-member.github.io/source/images/image-20210407125736502.png)
+<img width="643" alt="image-20210407125736502" src="https://user-images.githubusercontent.com/68108633/120448758-d63a0680-c3c6-11eb-859e-9fec80f0f0c9.png">
 
 
 
@@ -157,7 +157,7 @@ Mask에 대한 분포는 어차피 mask를 쓴 data가 많이 필요하기 때�
 
    cosineannealing의 lr은 아래 그래프와 같습니다
 
-   <img src="../images/image-20210602165129448.png" alt="image-20210602165129448" style="zoom:50%;" />
+   <img width="726" alt="image-20210602165129448" src="https://user-images.githubusercontent.com/68108633/120448233-53b14700-c3c6-11eb-9bae-b4e1f50ca536.png">
 
    종료시점까지 step마다 lr이 감소하는 StepLR scheduler과 달리 주기마다 lr값을 높혀줌으로서 model이 local minimum에서 빠져나오게 해줍니다.
 
@@ -205,7 +205,6 @@ Mask에 대한 분포는 어차피 mask를 쓴 data가 많이 필요하기 때�
    이두가지를 model의 결과에 argmax를 취해주기 전 결과끼리 가중치를 곱해주고 모두 더한 이후 argmax를 시켜주었습니다. 이중  efficientnet의 성능이 더 높았기때문에 가중치를 0.4씩으로 주고 더하였습니다. 
 
    결과적으로 약간의 LB score향상을 얻어냈습니다.
-   
 
 
 
