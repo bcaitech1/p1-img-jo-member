@@ -6,14 +6,14 @@ import random
 import re
 from importlib import import_module
 from pathlib import Path
-
+import torch.nn.init as init
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
+from efficientnet_pytorch import EfficientNet
 from dataset import MaskBaseDataset
 from loss import create_criterion
 
@@ -27,6 +27,23 @@ def seed_everything(seed):
     np.random.seed(seed)
     random.seed(seed)
 
+
+def initialize_weights(model):
+    """
+    Initialize all weights using xavier uniform. 
+    For more weight initialization methods, check https://pytorch.org/docs/stable/nn.init.html
+    """
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            init.xavier_uniform_(m.weight.data)
+            if m.bias is not None:
+                m.bias.data.zero_()
+        elif isinstance(m, nn.BatchNorm2d):
+            m.weight.data.fill_(1)
+            m.bias.data.zero_()
+        elif isinstance(m, nn.Linear):
+            m.weight.data.normal_(0, 0.01)
+            m.bias.data.zero_()
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
@@ -129,21 +146,16 @@ def train(data_dir, model_dir, args):
     )
 
     # -- model
-    model_module = getattr(import_module("model"), args.model)  # default: BaseModel
-    model = model_module(
-        num_classes=num_classes
-    ).to(device)
+    save_dir = os.path.join('model', 'efficient-b4')
+    model = EfficientNet.from_pretrained('efficientnet-b4')
+    model._fc = nn.Linear(1792, 18)
+    initialize_weights(model._fc)
     model = torch.nn.DataParallel(model)
 
     # -- loss & metric
     criterion = create_criterion(args.criterion)  # default: cross_entropy
-    opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-    optimizer = opt_module(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=args.lr,
-        weight_decay=5e-4
-    )
-    scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+    optimizer = AdamP(model.parameters(), lr=0.000001, betas=(0.9, 0.999), weight_decay=1e-4)
+    # scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
     # -- logging
     logger = SummaryWriter(log_dir=save_dir)
@@ -157,15 +169,24 @@ def train(data_dir, model_dir, args):
         model.train()
         loss_value = 0
         matches = 0
-        for idx, train_batch in enumerate(train_loader):
-            inputs, labels = train_batch
+        for inputs, mask_label,gender_label,age_label in tqdm(train_loader):
             inputs = inputs.to(device)
-            labels = labels.to(device)
-
+            mask_label = mask_label.to(device)
+            gender_label = gender_label.to(device)
+            age_label = age_label.to(device)
+            outputs = model(inputs)
             optimizer.zero_grad()
-
-            outs = model(inputs)
-            preds = torch.argmax(outs, dim=-1)
+            labels = torch.cat([mask_label,gender_label,age_label],dim=-1)
+        
+            loss1 = criterion1(outputs[:,:3],mask_label)
+            #loss2 = criterion2(outputs[:,:3],mask_label)
+            loss3 = criterion1(outputs[:,3:5],gender_label)
+            #loss4 = criterion2(outputs[:,3:5],gender_label)
+            loss5 = criterion1(outputs[:,5:8],age_label)
+            #loss6 = criterion2(outputs[:,5:8],age_label)
+            #loss = ((0.5*loss1)+(0.5*loss2)+(0.5*loss3)+(0.5*loss4)+(0.5*loss5)+(0.5*loss6))/3
+            loss = (loss1+loss3+loss5)/3
+            preds = torch.argmax(outputs, dim=-1)
             loss = criterion(outs, labels)
 
             loss.backward()
@@ -196,15 +217,23 @@ def train(data_dir, model_dir, args):
             val_loss_items = []
             val_acc_items = []
             figure = None
-            for val_batch in val_loader:
-                inputs, labels = val_batch
+            for inputs, mask_label,gender_label,age_label in val_loader:
                 inputs = inputs.to(device)
-                labels = labels.to(device)
+                mask_label = mask_label.to(device)
+                gender_label = gender_label.to(device)
+                age_label = age_label.to(device)
+                outputs = model(inputs)
+                labels = torch.cat([mask_label,gender_label,age_label],dim=-1)
+                preds = torch.argmax(outputs, dim=-1)
 
-                outs = model(inputs)
-                preds = torch.argmax(outs, dim=-1)
-
-                loss_item = criterion(outs, labels).item()
+                loss1 = criterion1(outputs[:,:3],mask_label)
+                #loss2 = criterion2(outputs[:,:3],mask_label)
+                loss3 = criterion1(outputs[:,3:5],gender_label)
+                #loss4 = criterion2(outputs[:,3:5],gender_label)
+                loss5 = criterion1(outputs[:,5:8],age_label)
+                #loss6 = criterion2(outputs[:,5:8],age_label)
+                #loss = ((0.5*loss1)+(0.5*loss2)+(0.5*loss3)+(0.5*loss4)+(0.5*loss5)+(0.5*loss6))/3
+                loss_item = ((loss1+loss3+loss5)/3).item()
                 acc_item = (labels == preds).sum().item()
                 val_loss_items.append(loss_item)
                 val_acc_items.append(acc_item)
@@ -243,8 +272,6 @@ if __name__ == '__main__':
     parser.add_argument("--resize", nargs="+", type=list, default=[128, 96], help='resize size for image when training')
     parser.add_argument('--batch_size', type=int, default=64, help='input batch size for training (default: 64)')
     parser.add_argument('--valid_batch_size', type=int, default=1000, help='input batch size for validing (default: 1000)')
-    parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
-    parser.add_argument('--optimizer', type=str, default='SGD', help='optimizer type (default: SGD)')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate (default: 1e-3)')
     parser.add_argument('--val_ratio', type=float, default=0.2, help='ratio for validaton (default: 0.2)')
     parser.add_argument('--criterion', type=str, default='cross_entropy', help='criterion type (default: cross_entropy)')

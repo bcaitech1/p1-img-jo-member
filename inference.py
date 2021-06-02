@@ -52,15 +52,18 @@ def inference(data_dir, model_dir, output_dir, args):
     )
 
     print("Calculating inference results..")
-    preds = []
+  all_predictions = []
+for images in tqdm(loader):
     with torch.no_grad():
-        for idx, images in enumerate(loader):
-            images = images.to(device)
-            pred = model(images)
-            pred = pred.argmax(dim=-1)
-            preds.extend(pred.cpu().numpy())
+        images = images.to(device)
+        pred = model_ft(images)
+        mask_pred = pred[:,:3].argmax(dim=-1)
+        gender_pred = pred[:,3:5].argmax(dim=-1)
+        age_pred = pred[:,5:].argmax(dim=-1)
+        pred = (mask_pred * 6 + gender_pred * 3 + age_pred).cpu().numpy()
+        all_predictions.extend(pred)
 
-    info['ans'] = preds
+    info['ans'] = all_predictions
     info.to_csv(os.path.join(output_dir, f'output.csv'), index=False)
     print(f'Inference Done!')
 
