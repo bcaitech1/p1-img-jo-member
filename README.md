@@ -3,6 +3,8 @@
 # P-stage 1) Image Classification
 
 <br/>
+## 성적
+<img width="950" alt="스크린샷 2021-06-03 오후 5 17 55" src="https://user-images.githubusercontent.com/68108633/120612015-b4588680-c48f-11eb-8082-c2c371efc957.png">
 
 ## 대회 개요
 
